@@ -1,12 +1,23 @@
 ﻿<Window x:Class="WeatherApp.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:WeatherApp"
-        mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
-    <Grid>
-        
-    </Grid>
+        Title="Weather App" Height="300" Width="400">
+
+    <Window.DataContext>
+        <vm:MainViewModel xmlns:vm="clr-namespace:WeatherApp.ViewModel"/>
+    </Window.DataContext>
+
+    <StackPanel Margin="20">
+
+        <TextBox Text="{Binding City, UpdateSourceTrigger=PropertyChanged}" />
+
+        <Button Content="Search"
+                Command="{Binding SearchCommand}"
+                Margin="0,10,0,10"/>
+
+        <TextBlock Text="{Binding Temperature}" />
+        <TextBlock Text="{Binding Description}" />
+        <TextBlock Text="{Binding ErrorMessage}" Foreground="Red"/>
+
+    </StackPanel>
 </Window>

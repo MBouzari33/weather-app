@@ -1,17 +1,16 @@
 ﻿using System;
 using System.ComponentModel;
 using System.Threading.Tasks;
-using System.Windows.Input;
-using WeatherApp.Commands;
-
+using WeatherApp.Services;
+using WeatherApp.Infrastructure;
 
 namespace WeatherApp.ViewModel
 {
-    public class MainViewModel : INotifyPropertyChanged
+    public class ViewModel : INotifyPropertyChanged
     {
-        // ========================
-        // ENUM (Zustandsmodell)
-        // ========================
+        // =========================
+        // STATE MODEL
+        // =========================
         public enum AppState
         {
             Initial,
@@ -20,18 +19,20 @@ namespace WeatherApp.ViewModel
             Error
         }
 
-        // ========================
+        // =========================
         // FIELDS
-        // ========================
+        // =========================
         private string _city = string.Empty;
         private double _temperature;
         private string _description = string.Empty;
         private string _errorMessage = string.Empty;
         private AppState _state = AppState.Initial;
 
-        // ========================
+        private readonly IWeatherService _weatherService;
+
+        // =========================
         // PROPERTIES
-        // ========================
+        // =========================
 
         public string City
         {
@@ -40,9 +41,7 @@ namespace WeatherApp.ViewModel
             {
                 if (_city == value) return;
                 _city = value;
-                OnPropertyChanged(nameof(City)); 
-
-                // Wenn sich City ändert → Button evtl. neu bewerten
+                OnPropertyChanged(nameof(City));
                 SearchCommand.RaiseCanExecuteChanged();
             }
         }
@@ -50,7 +49,7 @@ namespace WeatherApp.ViewModel
         public double Temperature
         {
             get => _temperature;
-            set
+            private set
             {
                 if (_temperature == value) return;
                 _temperature = value;
@@ -61,7 +60,7 @@ namespace WeatherApp.ViewModel
         public string Description
         {
             get => _description;
-            set
+            private set
             {
                 if (_description == value) return;
                 _description = value;
@@ -72,7 +71,7 @@ namespace WeatherApp.ViewModel
         public string ErrorMessage
         {
             get => _errorMessage;
-            set
+            private set
             {
                 if (_errorMessage == value) return;
                 _errorMessage = value;
@@ -80,45 +79,44 @@ namespace WeatherApp.ViewModel
             }
         }
 
-        // Remove the invalid line "aglay" from the State property setter
         public AppState State
         {
             get => _state;
-            set
+            private set
             {
                 if (_state == value) return;
                 _state = value;
-                OnPropertyChanged(nameof(State));
 
-                // WICHTIG:
-                // Wenn State sich ändert → Button neu prüfen
+                OnPropertyChanged(nameof(State));
+                OnPropertyChanged(nameof(IsLoading));
+
                 SearchCommand.RaiseCanExecuteChanged();
             }
         }
 
         public bool IsLoading => State == AppState.Loading;
 
-        // ========================
+        // =========================
         // COMMANDS
-        // ========================
+        // =========================
 
-        public RelayCommand SearchCommand { get; }
+        public AsyncRelayCommand SearchCommand { get; }
 
-        // ========================
-        // CONSTRUCTOR
-        // ========================
-
-        public MainViewModel()
+        // Replace the constructor assignment for SearchCommand with the correct number of arguments
+        public ViewModel(IWeatherService weatherService)
         {
-            SearchCommand = new RelayCommand(
-                execute: _ => Search(),
-                canExecute: _ => CanSearch()
+            _weatherService = weatherService;
+
+            SearchCommand = new AsyncRelayCommand(
+                executeAsync: SearchAsync,
+                canExecute: CanSearch,
+                execute: SearchAsync // Provide the third required argument as per the constructor signature
             );
         }
 
-        // ========================
-        // LOGIK
-        // ========================
+        // =========================
+        // LOGIC
+        // =========================
 
         private bool CanSearch()
         {
@@ -126,18 +124,26 @@ namespace WeatherApp.ViewModel
                    && State != AppState.Loading;
         }
 
-        private async void Search()
+        private async Task SearchAsync()
         {
             try
             {
                 State = AppState.Loading;
                 ErrorMessage = string.Empty;
 
-                // Simulierte API
-                await Task.Delay(1500);
+                var result = await _weatherService.GetWeatherAsync(City);
 
-                Temperature = 22.5;
-                Description = "Sunny";
+                if (result?.Main == null)
+                {
+                    throw new Exception("Invalid API response.");
+                }
+
+                Temperature = result.Main.Temp;
+
+                Description = result.Weather != null &&
+                              result.Weather.Count > 0
+                    ? result.Weather[0].Description
+                    : "No description available";
 
                 State = AppState.Success;
             }
@@ -148,17 +154,17 @@ namespace WeatherApp.ViewModel
             }
         }
 
-        // ========================
+        // =========================
         // INotifyPropertyChanged
-        // ========================
+        // =========================
 
         public event PropertyChangedEventHandler PropertyChanged;
 
         protected void OnPropertyChanged(string propertyName)
         {
-            PropertyChanged?.Invoke(this,
+            PropertyChanged?.Invoke(
+                this,
                 new PropertyChangedEventArgs(propertyName));
         }
     }
-
 }
